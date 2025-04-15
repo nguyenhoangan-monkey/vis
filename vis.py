@@ -52,11 +52,6 @@ GROUPNAMES = (
     + ["IACS Total", "IACS Main Panel", "IACS RP2 Panel"]
 )
 
-CSV_DATE = "Date"
-CSV_TIME = "Time"
-CSV_VALUE = "Value"
-
-
 def valid_date(s: str) -> datetime:
     try:
         return datetime.strptime(s, "%m/%d/%Y")
@@ -256,10 +251,10 @@ def calc_annex_helper():
                 reader = csv.DictReader(f)  # reads every row in the csv into dict
                 for row in reader:
                     if not filedata:  # if dictionary is empty, initiate values
-                        filedata[CSV_DATE] = [int(row[CSV_DATE])]
+                        filedata["Date"] = [int(row["Date"])]
                         filedata[group] = [float(row[group])]
                     else:
-                        filedata[CSV_DATE].append(int(row[CSV_DATE]))
+                        filedata["Date"].append(int(row["Date"]))
                         filedata[group].append(float(row[group]))
     average = round(sum(filedata[group]) / len(filedata[group]), 3)
     # maximum = round(max(filedata[group]), 3)
@@ -287,7 +282,7 @@ def parse_HPC():
     print(files)
 
     # array to append data extracted from the CSV
-    hpc_data[CSV_DATE] = []
+    hpc_data["Date"] = []
     hpc_data[args.group] = []
     hpc_data["SeaWulf Main Room on UPS"] = []
     hpc_data["SeaWulf Main Room on Non-UPS"] = []
@@ -303,11 +298,11 @@ def parse_HPC():
                 reader = csv.DictReader(f)  # reads every row in the csv into dict
                 for row in reader:
                     if datetime.timestamp(startDate) <= int(
-                        row[CSV_DATE]
+                        row["Date"]
                     ) and datetime.timestamp(endDate) >= int(
-                        row[CSV_DATE]
+                        row["Date"]
                     ):  # timestamp in range
-                        hpc_data[CSV_DATE].append(int(row[CSV_DATE]))  # append values
+                        hpc_data["Date"].append(int(row["Date"]))  # append values
                         if args.group not in row:
                             hpc_data[args.group].append(float(0))
                         if (
@@ -391,7 +386,7 @@ def parse_ENT():
             )
 
     # array to append data extracted from the CSV, specifically the timestamp
-    ent_data[CSV_DATE] = []
+    ent_data["Date"] = []
     ent_data[args.group] = []  # arguments parsed from the reader
     if read:
         latestTime = None  # latest time in each ENT file, for checking overlaps
@@ -400,9 +395,9 @@ def parse_ENT():
                 reader = csv.DictReader(f)
                 for row in reader:
                     try:
-                        dt = datetime.strptime(row[CSV_TIME], DT_FORMAT_AMPM_SHORT)
+                        dt = datetime.strptime(row["Time"], DT_FORMAT_AMPM_SHORT)
                     except Exception:
-                        dt = datetime.strptime(row[CSV_TIME], DT_FORMAT_AMPM_LONG)
+                        dt = datetime.strptime(row["Time"], DT_FORMAT_AMPM_LONG)
                     timestamp = int(time.mktime(dt.timetuple()))
 
                     if (
@@ -413,11 +408,11 @@ def parse_ENT():
                     ):
                         continue
                     try:
-                        power = VOLTAGE_ENT * float(row[CSV_VALUE]) / 1000.0
+                        power = VOLTAGE_ENT * float(row["Value"]) / 1000.0
                     except:
                         power = 0
 
-                    ent_data[CSV_DATE].append(timestamp)
+                    ent_data["Date"].append(timestamp)
                     ent_data[args.group].append(power)
                 latestTime = timestamp
 
@@ -427,7 +422,7 @@ def parse_UPS():
         ups_data -> {Date: [timestamps], 'args.group': [values]}
     ups_data is a dictionary with an array for timestamps, and array for relevant data.
     """
-    ups_data[CSV_DATE] = []
+    ups_data["Date"] = []
     ups_data["UPS_AVG"] = []
     # ups_data['UPS_MAX'] = []
 
@@ -479,7 +474,7 @@ def parse_UPS():
             with open(file, "r") as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    timestring = row[CSV_DATE] + " " + row[CSV_TIME]
+                    timestring = row["Date"] + " " + row["Time"]
 
                     try:
                         dt = datetime.strptime(timestring, DT_FORMAT_SHORT_YEAR)
@@ -494,7 +489,7 @@ def parse_UPS():
                         or timestamp > endDate.timestamp()
                     ):
                         continue
-                    ups_data[CSV_DATE].append(timestamp)
+                    ups_data["Date"].append(timestamp)
                     ups_data["UPS_AVG"].append(int(row["Watts Out (avg)"]) / 1000.0)
                 latestTime = timestamp
 
@@ -504,7 +499,7 @@ def parse_UPS():
 # assert hpc_data and ent_data and ups_data
 def clean_data(dataset):
     for key in dataset:  # loop to remove outliers
-        if key != CSV_DATE and len(dataset[key]) != 0:
+        if key != "Date" and len(dataset[key]) != 0:
             std = np.std(dataset[key])
             mean = np.mean(dataset[key])
             dataset[key] = [
@@ -535,18 +530,18 @@ def align_timestamps(dataset1, dataset2):
     """
     # if the timestamps are the same length, simply reassign
     # does NOT account for mismatching timestamps within data; approximates
-    if len(dataset2[CSV_DATE]) == len(dataset1[CSV_DATE]):
-        dataset1[CSV_DATE] = dataset2[CSV_DATE]
+    if len(dataset2["Date"]) == len(dataset1["Date"]):
+        dataset1["Date"] = dataset2["Date"]
         return
 
-    if len(dataset2[CSV_DATE]) - len(dataset1[CSV_DATE]) < 0:
+    if len(dataset2["Date"]) - len(dataset1["Date"]) < 0:
         # switch if ds1 is longer than ds2
         temp = dataset1
         dataset1 = dataset2
         dataset2 = temp
 
-    timestamps1 = np.array(dataset1[CSV_DATE], dtype=int)
-    timestamps2 = np.array(dataset2[CSV_DATE], dtype=int)
+    timestamps1 = np.array(dataset1["Date"], dtype=int)
+    timestamps2 = np.array(dataset2["Date"], dtype=int)
 
     # otherwise perform elementwise comparison of timestamps
     # determines if ds1 is earlier/later than ds2 on average
@@ -584,7 +579,7 @@ def align_timestamps(dataset1, dataset2):
             timestamps1 = list(np.insert(timestamps1, i, elem2))
             # update data for values
             for key in dataset1:
-                if key != CSV_DATE:
+                if key != "Date":
                     if i == 0:
                         dataset1[key].insert(i, dataset1[key][i + 1])
                     elif i == len(timestamps1) - 1:
@@ -600,7 +595,7 @@ def align_timestamps(dataset1, dataset2):
 
     # print([ts1 for ts1, ts2 in zip(timestamps1, dataset2['Date']) if ts1 != ts2][::50])
     # print(timestamps2 == dataset2['Date'])
-    dataset1[CSV_DATE] = timestamps1
+    dataset1["Date"] = timestamps1
     # print([ts1 for ts1, ts2 in zip(dataset1['Date'], dataset2['Date']) if ts1 != ts2][::50])
     assert len(timestamps1) == len(timestamps2)  # length check
     assert (
@@ -618,10 +613,10 @@ def align():
         align_timestamps(hpc_data, ent_data)
 
     if ups_data and hpc_data:
-        assert hpc_data[CSV_DATE] == ups_data[CSV_DATE]
+        assert hpc_data["Date"] == ups_data["Date"]
     if ent_data and hpc_data:
-        assert hpc_data[CSV_DATE] == ent_data[CSV_DATE]
-    print(np.average(np.diff(hpc_data[CSV_DATE])))
+        assert hpc_data["Date"] == ent_data["Date"]
+    print(np.average(np.diff(hpc_data["Date"])))
 
 
 # CALCULATING MAX/AVERAGES =============================================
@@ -691,12 +686,12 @@ def calculate(interval):
                     average = swUPSAvg + swNonUPSAvg
                 else:  # OBTAINING ANNEX DATA
                     if (
-                        hpc_data[CSV_DATE][x * interval]
+                        hpc_data["Date"][x * interval]
                         >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
                     ):  # if data's past March 13th
                         swAnnexUPSAvg = swAnnexUPSAvg + SCGP_LOAD
                     elif (
-                        hpc_data[CSV_DATE][x * interval]
+                        hpc_data["Date"][x * interval]
                         >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
                     ):  # if data's past February 16th
                         swAnnexUPSAvg = swAnnexUPSAvg + SCGP_LOAD + ANNEX_A03
@@ -708,7 +703,7 @@ def calculate(interval):
                         average = swNonUPSAvg + upsAvg - swAnnexUPSAvg
                 datetime_obj = datetime.fromtimestamp(
                     round(
-                        sum(hpc_data[CSV_DATE][x * interval : (x + 1) * interval])
+                        sum(hpc_data["Date"][x * interval : (x + 1) * interval])
                         / interval
                     )
                 )
@@ -764,12 +759,12 @@ def calculate(interval):
                 else:
                     # OBTAINING ANNEX DATA
                     if (
-                        hpc_data[CSV_DATE][x * interval]
+                        hpc_data["Date"][x * interval]
                         >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
                     ):  # if data's past March 13th
                         swAnnexUPSMax = swAnnexUPSMax + SCGP_LOAD
                     elif (
-                        hpc_data[CSV_DATE][x * interval]
+                        hpc_data["Date"][x * interval]
                         >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
                     ):  # if data's past February 16th
                         swAnnexUPSMax = swAnnexUPSMax + SCGP_LOAD + ANNEX_A03
@@ -782,7 +777,7 @@ def calculate(interval):
 
                 datetime_obj = datetime.fromtimestamp(
                     round(
-                        sum(hpc_data[CSV_DATE][x * interval : (x + 1) * interval])
+                        sum(hpc_data["Date"][x * interval : (x + 1) * interval])
                         / interval
                     )
                 )
@@ -792,7 +787,7 @@ def calculate(interval):
         for x in range(0, int(args.numPoints)):
             if args.avg:
                 if (
-                    hpc_data[CSV_DATE][x * interval]
+                    hpc_data["Date"][x * interval]
                     >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
                 ):  # if data's past March 13th
                     annex_load = (
@@ -804,7 +799,7 @@ def calculate(interval):
                         + SCGP_LOAD
                     )
                 elif (
-                    hpc_data[CSV_DATE][x * interval]
+                    hpc_data["Date"][x * interval]
                     >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
                 ):  # if data's past February 16th
                     annex_load = (
@@ -820,7 +815,7 @@ def calculate(interval):
                     annex_load = ANNEX_UPS
                 datetime_obj = datetime.fromtimestamp(
                     round(
-                        sum(hpc_data[CSV_DATE][x * interval : (x + 1) * interval])
+                        sum(hpc_data["Date"][x * interval : (x + 1) * interval])
                         / interval
                     )
                 )
@@ -829,7 +824,7 @@ def calculate(interval):
             if args.max:  # for the -m flag and default behaviosr
                 # print("MAX:" , max(hpc_data[args.group][x*interval : (x+1)*interval]))
                 if (
-                    hpc_data[CSV_DATE][x * interval]
+                    hpc_data["Date"][x * interval]
                     >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
                 ):  # if data's past March 13th
                     annex_load = (
@@ -837,7 +832,7 @@ def calculate(interval):
                         + SCGP_LOAD
                     )
                 elif (
-                    hpc_data[CSV_DATE][x * interval]
+                    hpc_data["Date"][x * interval]
                     >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
                 ):  # if data's past February 16th
                     annex_load = (
@@ -850,7 +845,7 @@ def calculate(interval):
                 # print("MAX CALCULATED:" , annex_load)
                 datetime_obj = datetime.fromtimestamp(
                     round(
-                        sum(hpc_data[CSV_DATE][x * interval : (x + 1) * interval])
+                        sum(hpc_data["Date"][x * interval : (x + 1) * interval])
                         / interval
                     )
                 )
@@ -860,7 +855,7 @@ def calculate(interval):
         for x in range(0, int(args.numPoints)):
             if args.avg:
                 if (
-                    hpc_data[CSV_DATE][x * interval]
+                    hpc_data["Date"][x * interval]
                     >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
                 ):  # if data's past March 13th
                     annex_load = (
@@ -868,7 +863,7 @@ def calculate(interval):
                         / interval
                     )
                 elif (
-                    hpc_data[CSV_DATE][x * interval]
+                    hpc_data["Date"][x * interval]
                     >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
                 ):
                     annex_load = (
@@ -879,7 +874,7 @@ def calculate(interval):
                     annex_load = ANNEX_UPS
                 datetime_obj = datetime.fromtimestamp(
                     round(
-                        sum(hpc_data[CSV_DATE][x * interval : (x + 1) * interval])
+                        sum(hpc_data["Date"][x * interval : (x + 1) * interval])
                         / interval
                     )
                 )
@@ -887,14 +882,14 @@ def calculate(interval):
                 averages[date] = round(annex_load, 2)
             if args.max:  # for the -m flag and default behaviosr
                 if (
-                    hpc_data[CSV_DATE][x * interval]
+                    hpc_data["Date"][x * interval]
                     >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
                 ):  # if data's past March 13th
                     annex_load = max(
                         hpc_data[args.group][x * interval : (x + 1) * interval]
                     )
                 elif (
-                    hpc_data[CSV_DATE][x * interval]
+                    hpc_data["Date"][x * interval]
                     >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
                 ):
                     annex_load = (
@@ -905,7 +900,7 @@ def calculate(interval):
                 # print("MAX CALCULATED:" , annex_load)
                 datetime_obj = datetime.fromtimestamp(
                     round(
-                        sum(hpc_data[CSV_DATE][x * interval : (x + 1) * interval])
+                        sum(hpc_data["Date"][x * interval : (x + 1) * interval])
                         / interval
                     )
                 )
@@ -921,7 +916,7 @@ def calculate(interval):
                 )
                 datetime_obj = datetime.fromtimestamp(
                     round(
-                        sum(hpc_data[CSV_DATE][x * interval : (x + 1) * interval])
+                        sum(hpc_data["Date"][x * interval : (x + 1) * interval])
                         / interval
                     )
                 )
@@ -933,7 +928,7 @@ def calculate(interval):
                 )
                 datetime_obj = datetime.fromtimestamp(
                     round(
-                        sum(hpc_data[CSV_DATE][x * interval : (x + 1) * interval])
+                        sum(hpc_data["Date"][x * interval : (x + 1) * interval])
                         / interval
                     )
                 )
@@ -982,7 +977,7 @@ def calculate(interval):
         )
 
     ax.set_title(f"Power Data for {args.group} {headerData}", y=1.07)
-    ax.set_xlabel(CSV_TIME)
+    ax.set_xlabel("Time")
     ax.set_ylabel("Power usage (kW)")
     # ax.set_ylim(min(filedata[args.group]) - totMax * 0.05, totMax + totMax * 0.1)
 
