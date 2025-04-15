@@ -185,7 +185,7 @@ def parse_HPC():
     hpc_data['SeaWulf Annex on UPS'] = []
 
     for file in files: # reading through every file
-        matches = re.split(r'^(\d{4})-(\d{2})-(\d{2})\.csv$', file)[1:4] # making sure file name matches expected format
+        matches = re.split(r'^../(\d{4})-(\d{2})-(\d{2})\.csv$', file)[1:4] # making sure file name matches expected format
         if matches:
             with open(file, 'r') as f:
                 reader = csv.DictReader(f) # reads every row in the csv into dict
@@ -411,7 +411,7 @@ def align():
     print(np.average(np.diff(hpc_data['Date'])))
 
 # CALCULATING MAX/AVERAGES =============================================
-def calculate():
+def calculate(interval):
     if not args.avg and not args.max: # if neither's specified, turn both on for default behavior
         args.avg = True
         args.max = True
@@ -621,8 +621,7 @@ def main():
     locale.setlocale(locale.LC_ALL, 'en_US')
 
     parse_HPC()
-    for key in hpc_data:
-        print(key, hpc_data[key][:-10])
+    print("HPC DATA PARSED:", list(hpc_data.keys()))
     if (len(hpc_data[args.group]) < int(args.numPoints)):
         print("Cannot have more points than there are data")
         exit()
@@ -632,13 +631,13 @@ def main():
     if args.group == 'Com Center Main Room' and not hpcOnly and not upsOnly: # INCLUDE ENTERPRISE EQUIPMENT DATA
         parse_ENT()
         for key in ent_data:
-            print(key, ent_data[key][:10])
+            print(key, ent_data[key][:1])
         print("ENT LENGTH:", len(ent_data[args.group]))
 
     if args.group == 'Com Center Main Room' and not hpcOnly and not entOnly: 
         parse_UPS()
         for key in ups_data:
-            print(key, ups_data[key][:10])
+            print(key, ups_data[key][:1])
         print("UPS LENGTH:", len(ups_data['UPS_AVG']))
 
     clean_data(hpc_data)
@@ -646,7 +645,7 @@ def main():
     if ent_data: clean_data(ent_data)
 
     align()
-    calculate()
+    calculate(interval)
     return
 
 main()
