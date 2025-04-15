@@ -352,8 +352,8 @@ def align_timestamps(dataset1, dataset2):
     # otherwise perform elementwise comparison of timestamps
     std_diff = np.std(timestamps2[:len(timestamps1)] - timestamps1) # determines if ds1 is earlier/later than ds2 on average
     diff_tolerance = abs(std_diff)
-    print("avg diff:", std_diff)
-    print("diff tol", diff_tolerance)
+    print("Average element-wise difference between points in timestamps1 and timestamps2:", std_diff)
+    print("Difference tolerance for calculating outliers (abs of avg difference): ", diff_tolerance)
     # ^ positive value: timestamps2 is later than timestamps1
     # print(timestamps1)
     # print(timestamps2)
@@ -364,11 +364,12 @@ def align_timestamps(dataset1, dataset2):
         except:
             timestamps1.append(elem2)
             elem1 = timestamps1[i]
-        if elem2 - elem1 > (std_diff + diff_tolerance): # indicates that there might've been a skip in time
+        if elem2 - elem1 > (2 * diff_tolerance): # indicates that there might've been a skip in time
             # first case: elem2 is much later than elem1, indicating a skip in timestamps2
             # realistically, as timestamps2 should be the longer array, the first case should not occur
             # print(elem1, ":", elem2)
-            print("ERROR: skip in timestamp detected within the CSV files, cannot perform timestamp alignment between two datasets provided")
+            # print("ERROR: skip in timestamp detected within the CSV files, cannot perform timestamp alignment between two datasets provided")
+            pass
         elif elem1 - elem2 > (std_diff + diff_tolerance):
             print(elem1, ":", elem2)
             # second case: elem1 is much later than elem2, indicating a skip in timestamps1
