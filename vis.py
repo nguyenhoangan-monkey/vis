@@ -123,11 +123,12 @@ numDays = (endDate.date() - startDate.date()).days
 
 # END OF ARG PARSING =====================================================================================================
 # START OF READING DATA ==================================================================================================
+# for more information see ./power_diagram.jpg
 averages = {} # global variables for data
 maxes = {}
-hpc_data = {}
-ent_data = {}
-ups_data = {}
+hpc_data = {} 
+ent_data = {} # Enterprise equipments power data. Location: mainroom, UPS
+ups_data = {} # UPS power data
 disclaimers = []
 
 def calc_annex_helper():
