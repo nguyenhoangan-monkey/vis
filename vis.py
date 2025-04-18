@@ -244,9 +244,8 @@ def calc_annex_helper(): # might not actually be used?
 
     FILENAME_REGEX_YMD = r"^(\d{4})-(\d{2})-(\d{2})\.csv$"
     for file in files:  # reading through every file
-        matches = re.split(FILENAME_REGEX_YMD, file)[
-            1:4
-        ]  # making sure file name matches expected format
+        # making sure file name matches expected format
+        matches = re.split(FILENAME_REGEX_YMD, file)[1:4] 
         if matches:
             with open(file, "r") as f:
                 reader = csv.DictReader(f)  # reads every row in the csv into dict
@@ -528,20 +527,18 @@ def align_timestamps(dataset1, dataset2):
     # print(timestamps1)
     # print(timestamps2)
 
-    for i, elem2 in enumerate(
-        timestamps2
-    ):  # enumerate returns tuples of (index, value)
+    for i, elem2 in enumerate(timestamps2):
         try:
             elem1 = timestamps1[i]
         except:
             timestamps1.append(elem2)
             elem1 = timestamps1[i]
-        if elem2 - elem1 > (
-            std_diff + diff_tolerance
-        ):  # indicates that there might've been a skip in time
-            # first case: elem2 is much later than elem1, indicating a skip in ts2
-            # realistically, as timestamps2 should be the longer array, the first case should not occur
-            # print(elem1, ":", elem2)
+
+        # indicates that there might've been a skip in time
+        # first case: elem2 is much later than elem1, indicating a skip in ts2
+        # realistically, as timestamps2 should be the longer array, the first case should not occur
+        # print(elem1, ":", elem2)
+        if elem2 - elem1 > (std_diff + diff_tolerance):
             print(
                 "ERROR: skip in timestamp detected within the CSV files,"
                 + " cannot perform timestamp alignment between two datasets provided"
@@ -595,8 +592,10 @@ def align():
 
 # CALCULATING MAX/AVERAGES =============================================
 def calculate(interval):
-    TIMESTAMP_0_05_06_EST_16_FEBURARY_2024 = 1708059906
-    TIMESTAMP_0_00_06_EDT_13_MARCH_2024 = 1710302406
+    def is_after_16_feb_2024(timestamp):
+        return timestamp >= 1708059906 # Fri Feb 16 2024 00:05:06 GMT-0500
+    def is_after_13_mar_2024(timestamp):
+        return timestamp >= 1710302406 # Wed Mar 13 2024 00:00:06 GMT-0400
 
     # if neither's specified, turn both on for default behavior
     if not args.avg and not args.max:
@@ -608,13 +607,13 @@ def calculate(interval):
         for x in range(0, int(args.numPoints)):
             start = x * interval
             end = (x + 1) * interval
-            def calculate_avg(data, key):
-                return round(sum(data[key][start:end]) / interval, 2)
 
             if args.avg:
+                def calculate_avg(data, key):
+                    return round(sum(data[key][start:end]) / interval, 2)
+                
                 if ups_data:
                     upsAvg = calculate_avg(ups_data, "UPS_AVG")
-
                 if ent_data:
                     entAvg = calculate_avg(ent_data, "Com Center Main Room")
 
@@ -631,16 +630,9 @@ def calculate(interval):
                 elif hpcOnly:  # display only SeaWulf data
                     average = swUPSAvg + swNonUPSAvg
                 else:  # OBTAINING ANNEX DATA
-                    time_pasts_march_13 = (
-                        hpc_data["Date"][start]
-                        >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
-                    )
-                    if time_pasts_march_13:  # if data's past March 13th
+                    if is_after_13_mar_2024(hpc_data["Date"][start]):
                         swAnnexUPSAvg = swAnnexUPSAvg + SCGP_LOAD
-                    elif (
-                        hpc_data["Date"][start]
-                        >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
-                    ):  # if data's past February 16th
+                    elif is_after_16_feb_2024(hpc_data["Date"][start]):
                         swAnnexUPSAvg = swAnnexUPSAvg + SCGP_LOAD + ANNEX_A03
                     else:
                         swAnnexUPSAvg = ANNEX_UPS  # relying on precomputed values, might not be accurate
@@ -656,44 +648,19 @@ def calculate(interval):
                 averages[date] = round(average, 2)
 
             if args.max:
+                def calculate_max(data, key):
+                    return round(max(data[key][start:end]), 2)
+                    
                 if ups_data:
-                    upsMax = round(
-                        max(ups_data["UPS_AVG"][start:end]), 2
-                    )
+                    upsMax = calculate_max(ups_data, "UPS_AVG")
                 if ent_data:
-                    entMax = round(
-                        max(
-                            ent_data["Com Center Main Room"][
-                                start:end
-                            ]
-                        ),
-                        2,
-                    )
-                swUPSMax = round(
-                    max(
-                        hpc_data["SeaWulf Main Room on UPS"][
-                            start:end
-                        ]
-                    ),
-                    2,
-                )
-                swNonUPSMax = round(
-                    max(
-                        hpc_data["SeaWulf Main Room on Non-UPS"][
-                            start:end
-                        ]
-                    ),
-                    2,
-                )
+                    entMax = calculate_max(ent_data, "Com Center Main Room")
+
+                swUPSMax = calculate_max(hpc_data, "SeaWulf Main Room on UPS")
+                swNonUPSMax = calculate_max(hpc_data, "SeaWulf Main Room on Non-UPS")
+
                 if not (hpcOnly or entOnly or upsOnly):
-                    swAnnexUPSMax = round(
-                        max(
-                            hpc_data["SeaWulf Annex on UPS"][
-                                start:end
-                            ]
-                        ),
-                        2,
-                    )
+                    swAnnexUPSMax = calculate_max(ups_data, "SeaWulf Annex on UPS")
 
                 if upsOnly:  # display only UPS data
                     maximum = upsMax
@@ -703,15 +670,9 @@ def calculate(interval):
                     maximum = swUPSMax + swNonUPSMax
                 else:
                     # OBTAINING ANNEX DATA
-                    if (
-                        hpc_data["Date"][start]
-                        >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
-                    ):  # if data's past March 13th
+                    if is_after_13_mar_2024(hpc_data["Date"][start]):
                         swAnnexUPSMax = swAnnexUPSMax + SCGP_LOAD
-                    elif (
-                        hpc_data["Date"][start]
-                        >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
-                    ):  # if data's past February 16th
+                    elif is_after_16_feb_2024(hpc_data["Date"][start]):
                         swAnnexUPSMax = swAnnexUPSMax + SCGP_LOAD + ANNEX_A03
                     else:
                         swAnnexUPSMax = ANNEX_UPS
@@ -725,15 +686,11 @@ def calculate(interval):
                 )
                 date = datetime_obj.strftime("%m/%d-%H:%M")
                 maxes[date] = round(maximum, 2)
-    # END HERE
     
     elif args.group == "Com Center Annex Total":
         for x in range(0, int(args.numPoints)):
             if args.avg:
-                if (
-                    hpc_data["Date"][x * interval]
-                    >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
-                ):  # if data's past March 13th
+                if is_after_13_mar_2024(hpc_data["Date"][x * interval]):
                     annex_load = (
                         (
                             sum(hpc_data[args.group][x * interval : (x + 1) * interval])
@@ -742,10 +699,7 @@ def calculate(interval):
                         + ANNEX_NONUPS
                         + SCGP_LOAD
                     )
-                elif (
-                    hpc_data["Date"][x * interval]
-                    >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
-                ):  # if data's past February 16th
+                elif is_after_16_feb_2024(hpc_data["Date"][x * interval]):
                     annex_load = (
                         (
                             sum(hpc_data[args.group][x * interval : (x + 1) * interval])
@@ -767,18 +721,12 @@ def calculate(interval):
                 averages[date] = round(annex_load, 2)
             if args.max:  # for the -m flag and default behaviosr
                 # print("MAX:" , max(hpc_data[args.group][x*interval : (x+1)*interval]))
-                if (
-                    hpc_data["Date"][x * interval]
-                    >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
-                ):  # if data's past March 13th
+                if is_after_13_mar_2024(hpc_data["Date"][x * interval]):
                     annex_load = (
                         max(hpc_data[args.group][x * interval : (x + 1) * interval])
                         + SCGP_LOAD
                     )
-                elif (
-                    hpc_data["Date"][x * interval]
-                    >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
-                ):  # if data's past February 16th
+                elif is_after_16_feb_2024(hpc_data["Date"][x * interval]):
                     annex_load = (
                         max(hpc_data[args.group][x * interval : (x + 1) * interval])
                         + SCGP_LOAD
@@ -798,18 +746,12 @@ def calculate(interval):
     elif args.group == "SeaWulf Annex on UPS":
         for x in range(0, int(args.numPoints)):
             if args.avg:
-                if (
-                    hpc_data["Date"][x * interval]
-                    >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
-                ):  # if data's past March 13th
+                if is_after_13_mar_2024(hpc_data["Date"][x * interval]):
                     annex_load = (
                         sum(hpc_data[args.group][x * interval : (x + 1) * interval])
                         / interval
                     )
-                elif (
-                    hpc_data["Date"][x * interval]
-                    >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
-                ):
+                elif is_after_16_feb_2024(hpc_data["Date"][x * interval]):
                     annex_load = (
                         sum(hpc_data[args.group][x * interval : (x + 1) * interval])
                         / interval
@@ -825,17 +767,11 @@ def calculate(interval):
                 date = datetime_obj.strftime("%m/%d-%H:%M")
                 averages[date] = round(annex_load, 2)
             if args.max:  # for the -m flag and default behaviosr
-                if (
-                    hpc_data["Date"][x * interval]
-                    >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
-                ):  # if data's past March 13th
+                if is_after_13_mar_2024(hpc_data["Date"][x * interval]):
                     annex_load = max(
                         hpc_data[args.group][x * interval : (x + 1) * interval]
                     )
-                elif (
-                    hpc_data["Date"][x * interval]
-                    >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
-                ):
+                elif is_after_16_feb_2024(hpc_data["Date"][x * interval]):
                     annex_load = (
                         max(hpc_data[args.group][x * interval : (x + 1) * interval])
                     ) + ANNEX_A03
