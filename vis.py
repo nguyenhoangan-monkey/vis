@@ -224,7 +224,7 @@ maxes = {}  # max of the power data requested by the user over the certain perio
 disclaimers = []  # problems outside of our control
 
 
-def calc_annex_helper():
+def calc_annex_helper(): # might not actually be used? 
     # can use to generate average before March 14th, but not max
     print("\nCalculating annex data")
     command = f"""ls -lt ../*-*-*csv | awk '{{print $9}}' | sed -n '/2024-03-28/, /2024-03-17/p' | tac"""
@@ -308,7 +308,7 @@ def parse_HPC():
                     hpc_data[args.group].append(float(0))
 
                 # FOR COMPUTING CENTER MAIN ROOM CAlCUlATIONS, RECORD
-                if (args.group == "Com Center Main Room"):
+                if args.group == "Com Center Main Room":
                     HEADER_STR = "SeaWulf Main Room on UPS"
                     hpc_data[HEADER_STR].append(float(row[HEADER_STR]))
                     HEADER_STR = "SeaWulf Main Room on Non-UPS"
@@ -321,7 +321,7 @@ def parse_HPC():
 
                     # ANNEX DATA REQUIRED FOR NONMETERED CALCULATIONS
                     annex_needed = not hpcOnly and not upsOnly and not entOnly
-                    if annex_needed:  
+                    if annex_needed:
                         HEADER_STR = "SeaWulf Annex on UPS"
                         if file >= "2024-02-16.csv":  # ANNEX DATA EXISTS
                             hpc_data[HEADER_STR].append(float(row[HEADER_STR]))
@@ -329,6 +329,7 @@ def parse_HPC():
                             hpc_data[HEADER_STR].append(float(0))
                 else:
                     hpc_data[args.group].append(float(row[args.group]))
+
 
 def parse_ENT():
     """Parses the files from the relevant time period from Enterprise logs. The following are modified:
@@ -384,35 +385,37 @@ def parse_ENT():
     # array to append data extracted from the CSV, specifically the timestamp
     ent_data["Date"] = []
     ent_data[args.group] = []  # arguments parsed from the reader
-    if read:
-        latestTime = None  # latest time in each ENT file, for checking overlaps
-        for file in files:
-            with open(file, "r") as f:
-                reader = csv.DictReader(f)
-                for row in reader:
-                    try:
-                        dt = datetime.strptime(row["Time"], DT_FORMAT_AMPM_SHORT)
-                    except Exception:
-                        dt = datetime.strptime(row["Time"], DT_FORMAT_AMPM_LONG)
-                    timestamp = int(time.mktime(dt.timetuple()))
+    if not read:
+        return
 
-                    if (
-                        latestTime != None
-                        and latestTime > timestamp
-                        or timestamp < startDate.timestamp()
-                        or timestamp > endDate.timestamp()
-                    ):
-                        continue
-                    try:
-                        VOLTAGE_ENT = 208.0 
-                        # convert amps to watts
-                        power = VOLTAGE_ENT * float(row["Value"]) / 1000.0
-                    except:
-                        power = 0
+    latestTime = None  # latest time in each ENT file, for checking overlaps
+    for file in files:
+        with open(file, "r") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                try:
+                    dt = datetime.strptime(row["Time"], DT_FORMAT_AMPM_SHORT)
+                except Exception:
+                    dt = datetime.strptime(row["Time"], DT_FORMAT_AMPM_LONG)
+                timestamp = int(time.mktime(dt.timetuple()))
 
-                    ent_data["Date"].append(timestamp)
-                    ent_data[args.group].append(power)
-                latestTime = timestamp
+                if (
+                    latestTime != None
+                    and latestTime > timestamp
+                    or timestamp < startDate.timestamp()
+                    or timestamp > endDate.timestamp()
+                ):
+                    continue
+                try:
+                    VOLTAGE_ENT = 208.0
+                    # convert amps to watts
+                    power = VOLTAGE_ENT * float(row["Value"]) / 1000.0
+                except:
+                    power = 0
+
+                ent_data["Date"].append(timestamp)
+                ent_data[args.group].append(power)
+            latestTime = timestamp
 
 
 def parse_UPS():
@@ -420,75 +423,50 @@ def parse_UPS():
         ups_data -> {Date: [timestamps], 'args.group': [values]}
     ups_data is a dictionary with an array for timestamps, and array for relevant data.
     """
-    ups_data["Date"] = []
-    ups_data["UPS_AVG"] = []
+    ups_data['Date'] = []
+    ups_data['UPS_AVG'] = []
     # ups_data['UPS_MAX'] = []
-
-    DATE_REGEX = r"\d{1,2}/\d{1,2}/\d{2,4}"
-    TIME_REGEX_HM = r"\d{1,2}:\d{1,2}"
-    DT_FORMAT_SHORT_YEAR = "%m/%d/%y %H:%M"
-    DT_FORMAT_LONG_YEAR = "%m/%d/%Y %H:%M"
-
+    
     print("\nPARSING UPS DATA...")
     read = True
     # bash code to filter through UPS files
     command = f"""ls -ltr ../UPS* | awk '{{print $9}}'"""
-    result = subprocess.run(
-        command,
-        shell=True,
-        executable="/bin/bash",
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        universal_newlines=True,
-    )
+    result = subprocess.run(command, shell=True, executable="/bin/bash",
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                universal_newlines=True)
     files = result.stdout.splitlines()
     print(files)
-
-    # finding the last recorded date for UPS files
-    with open(files[-1], "r") as lastFile:
+    
+    with open (files[-1], 'r') as lastFile: # finding the last recorded date for UPS files
         lastEntry = lastFile.readlines()[-1]
-        date = (
-            re.search(DATE_REGEX, lastEntry).group(0)
-            + " "
-            + re.search(TIME_REGEX_HM, lastEntry).group(0)
-        )
-
+        date = re.search(r'\d{1,2}/\d{1,2}/\d{2,4}', lastEntry).group(0)
+        reTime = re.search(r'\d{1,2}:\d{1,2}', lastEntry).group(0)
+        date += " " + reTime
         try:
-            dt = datetime.strptime(date, DT_FORMAT_SHORT_YEAR)
-        except Exception:
-            dt = datetime.strptime(date, DT_FORMAT_LONG_YEAR)
-        last = int(time.mktime(dt.timetuple()))
-
-        if last < datetime.timestamp(
-            startDate
-        ):  # if the last recorded date is before the requested time period
+            last = int(time.mktime(datetime.strptime(date, "%m/%d/%y %H:%M").timetuple()))
+        except: # for formats like 1/04/2024
+            last = int(time.mktime(datetime.strptime(date, "%m/%d/%Y %H:%M").timetuple()))
+        if last < datetime.timestamp(startDate): # if the last recorded date is before the requested time period
             read = False  # do not read ups files
         if last < datetime.timestamp(endDate):
             disclaimers.append("Missing UPS trendlog for the time period.")
 
     if read:
-        latestTime = None  # latest time in each UPS file, for checking overlaps
+        latestTime = None # latest time in each UPS file, for checking overlaps
         for file in files:
-            with open(file, "r") as f:
+            with open(file, 'r') as f:
                 reader = csv.DictReader(f)
                 for row in reader:
-                    timestring = row["Date"] + " " + row["Time"]
-
-                    try:
-                        dt = datetime.strptime(timestring, DT_FORMAT_SHORT_YEAR)
-                    except Exception:
-                        dt = datetime.strptime(timestring, DT_FORMAT_LONG_YEAR)
-                    timestamp = int(time.mktime(dt.timetuple()))
-
-                    if (
-                        latestTime != None
-                        and latestTime > timestamp
-                        or timestamp < startDate.timestamp()
-                        or timestamp > endDate.timestamp()
-                    ):
+                    timestring = row['Date'] + " " + row['Time']
+                    try: 
+                        timestamp = int(time.mktime(datetime.strptime(timestring, "%m/%d/%y %H:%M").timetuple()))
+                    except: 
+                        timestamp = int(time.mktime(datetime.strptime(timestring, "%m/%d/%Y %H:%M").timetuple()))
+                    if latestTime != None and latestTime > timestamp or timestamp < startDate.timestamp() or timestamp > endDate.timestamp():
                         continue
-                    ups_data["Date"].append(timestamp)
-                    ups_data["UPS_AVG"].append(int(row["Watts Out (avg)"]) / 1000.0)
+                    ups_data['Date'].append(timestamp)
+                    ups_data['UPS_AVG'].append(int(row['Watts Out (avg)']) / 1000.0)
                 latestTime = timestamp
 
 
@@ -502,9 +480,7 @@ def clean_data(dataset):
 
         std = np.std(dataset[key])
         mean = np.mean(dataset[key])
-        dataset[key] = [
-            0 if abs(val - mean) > (std) else val for val in dataset[key]
-        ]
+        dataset[key] = [0 if abs(val - mean) > (std) else val for val in dataset[key]]
         for i, val in enumerate(dataset[key]):
             if val != 0:
                 continue
@@ -513,13 +489,9 @@ def clean_data(dataset):
             while next != (len(dataset[key]) - 1) and dataset[key][next] == 0:
                 next += 1  # finding next valid data point
             if i == 0:
-                dataset[key][i] = dataset[key][
-                    next
-                ]  # edge case for first point
+                dataset[key][i] = dataset[key][next]  # edge case for first point
             elif i == len(dataset[key]) - 1:
-                dataset[key][i] = dataset[key][
-                    i - 1
-                ]  # edge case for last point
+                dataset[key][i] = dataset[key][i - 1]  # edge case for last point
             else:
                 dataset[key][i] = (dataset[key][i - 1] + dataset[key][next]) / 2
     return
@@ -626,59 +598,31 @@ def calculate(interval):
     TIMESTAMP_0_05_06_EST_16_FEBURARY_2024 = 1708059906
     TIMESTAMP_0_00_06_EDT_13_MARCH_2024 = 1710302406
 
-    if (
-        not args.avg and not args.max
-    ):  # if neither's specified, turn both on for default behavior
+    # if neither's specified, turn both on for default behavior
+    if not args.avg and not args.max:
         args.avg = True
         args.max = True
 
     if args.group == "Com Center Main Room":  # MAIN ROOM CALCULATIONS
+        # helper function for averaging
         for x in range(0, int(args.numPoints)):
+            start = x * interval
+            end = (x + 1) * interval
+            def calculate_avg(data, key):
+                return round(sum(data[key][start:end]) / interval, 2)
+
             if args.avg:
                 if ups_data:
-                    upsAvg = round(
-                        sum(ups_data["UPS_AVG"][x * interval : (x + 1) * interval])
-                        / interval,
-                        2,
-                    )
+                    upsAvg = calculate_avg(ups_data, "UPS_AVG")
+
                 if ent_data:
-                    entAvg = round(
-                        sum(
-                            ent_data["Com Center Main Room"][
-                                x * interval : (x + 1) * interval
-                            ]
-                        )
-                        / interval,
-                        2,
-                    )
-                swUPSAvg = round(
-                    sum(
-                        hpc_data["SeaWulf Main Room on UPS"][
-                            x * interval : (x + 1) * interval
-                        ]
-                    )
-                    / interval,
-                    2,
-                )
-                swNonUPSAvg = round(
-                    sum(
-                        hpc_data["SeaWulf Main Room on Non-UPS"][
-                            x * interval : (x + 1) * interval
-                        ]
-                    )
-                    / interval,
-                    2,
-                )
+                    entAvg = calculate_avg(ent_data, "Com Center Main Room")
+
+                swUPSAvg = calculate_avg(hpc_data, "SeaWulf Main Room on UPS")
+                swNonUPSAvg = calculate_avg(hpc_data, "SeaWulf Main Room on Non-UPS")
+
                 if not (hpcOnly or entOnly or upsOnly):
-                    swAnnexUPSAvg = round(
-                        sum(
-                            hpc_data["SeaWulf Annex on UPS"][
-                                x * interval : (x + 1) * interval
-                            ]
-                        )
-                        / interval,
-                        2,
-                    )
+                    swAnnexUPSAvg = calculate_avg(hpc_data, "SeaWulf Annex on UPS")
 
                 if upsOnly:  # display only UPS data
                     average = upsAvg
@@ -687,13 +631,14 @@ def calculate(interval):
                 elif hpcOnly:  # display only SeaWulf data
                     average = swUPSAvg + swNonUPSAvg
                 else:  # OBTAINING ANNEX DATA
-                    if (
-                        hpc_data["Date"][x * interval]
+                    time_pasts_march_13 = (
+                        hpc_data["Date"][start]
                         >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
-                    ):  # if data's past March 13th
+                    )
+                    if time_pasts_march_13:  # if data's past March 13th
                         swAnnexUPSAvg = swAnnexUPSAvg + SCGP_LOAD
                     elif (
-                        hpc_data["Date"][x * interval]
+                        hpc_data["Date"][start]
                         >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
                     ):  # if data's past February 16th
                         swAnnexUPSAvg = swAnnexUPSAvg + SCGP_LOAD + ANNEX_A03
@@ -704,24 +649,22 @@ def calculate(interval):
                     else:  # for regular main room total
                         average = swNonUPSAvg + upsAvg - swAnnexUPSAvg
                 datetime_obj = datetime.fromtimestamp(
-                    round(
-                        sum(hpc_data["Date"][x * interval : (x + 1) * interval])
-                        / interval
-                    )
+                    round(sum(hpc_data["Date"][start:end]) / interval)
                 )
                 OUTPUT_DATE_FORMAT = "%m/%d-%H:%M"
                 date = datetime_obj.strftime(OUTPUT_DATE_FORMAT)
                 averages[date] = round(average, 2)
+
             if args.max:
                 if ups_data:
                     upsMax = round(
-                        max(ups_data["UPS_AVG"][x * interval : (x + 1) * interval]), 2
+                        max(ups_data["UPS_AVG"][start:end]), 2
                     )
                 if ent_data:
                     entMax = round(
                         max(
                             ent_data["Com Center Main Room"][
-                                x * interval : (x + 1) * interval
+                                start:end
                             ]
                         ),
                         2,
@@ -729,7 +672,7 @@ def calculate(interval):
                 swUPSMax = round(
                     max(
                         hpc_data["SeaWulf Main Room on UPS"][
-                            x * interval : (x + 1) * interval
+                            start:end
                         ]
                     ),
                     2,
@@ -737,7 +680,7 @@ def calculate(interval):
                 swNonUPSMax = round(
                     max(
                         hpc_data["SeaWulf Main Room on Non-UPS"][
-                            x * interval : (x + 1) * interval
+                            start:end
                         ]
                     ),
                     2,
@@ -746,7 +689,7 @@ def calculate(interval):
                     swAnnexUPSMax = round(
                         max(
                             hpc_data["SeaWulf Annex on UPS"][
-                                x * interval : (x + 1) * interval
+                                start:end
                             ]
                         ),
                         2,
@@ -761,12 +704,12 @@ def calculate(interval):
                 else:
                     # OBTAINING ANNEX DATA
                     if (
-                        hpc_data["Date"][x * interval]
+                        hpc_data["Date"][start]
                         >= TIMESTAMP_0_00_06_EDT_13_MARCH_2024
                     ):  # if data's past March 13th
                         swAnnexUPSMax = swAnnexUPSMax + SCGP_LOAD
                     elif (
-                        hpc_data["Date"][x * interval]
+                        hpc_data["Date"][start]
                         >= TIMESTAMP_0_05_06_EST_16_FEBURARY_2024
                     ):  # if data's past February 16th
                         swAnnexUPSMax = swAnnexUPSMax + SCGP_LOAD + ANNEX_A03
@@ -778,13 +721,12 @@ def calculate(interval):
                         maximum = swNonUPSMax + upsMax - swAnnexUPSMax
 
                 datetime_obj = datetime.fromtimestamp(
-                    round(
-                        sum(hpc_data["Date"][x * interval : (x + 1) * interval])
-                        / interval
-                    )
+                    round(sum(hpc_data["Date"][start:end]) / interval)
                 )
                 date = datetime_obj.strftime("%m/%d-%H:%M")
                 maxes[date] = round(maximum, 2)
+    # END HERE
+    
     elif args.group == "Com Center Annex Total":
         for x in range(0, int(args.numPoints)):
             if args.avg:
