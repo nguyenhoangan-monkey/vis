@@ -341,7 +341,7 @@ def align_timestamps(dataset1, dataset2):
     # arguably very bad logic
     if len(dataset2['Date']) == len(dataset1['Date']):
         dataset1['Date'] = dataset2['Date']
-        return
+        return 
 
     if len(dataset2['Date']) < len(dataset1['Date']):
         # switch if dataset1 is longer than dataset2, so that dataset2 is always longer
