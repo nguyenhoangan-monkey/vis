@@ -337,7 +337,9 @@ def align_timestamps(dataset1, dataset2):
     Output: modifies in-place the timestamps and corresponding data
     """
     # if the timestamps are the same length, simply reassign
-    if len(dataset2['Date']) == len(dataset1['Date']): # does NOT account for mismatching timestamps within data; approximates
+    # does NOT account for mismatching timestamps within data, will just reassign them to the same bucket
+    # arguably very bad logic
+    if len(dataset2['Date']) == len(dataset1['Date']):
         dataset1['Date'] = dataset2['Date']
         return
 
@@ -346,17 +348,17 @@ def align_timestamps(dataset1, dataset2):
         temp = dataset1
         dataset1 = dataset2
         dataset2 = temp
-    timestamps1 = np.array(dataset1['Date'], dtype=int)
+    timestamps1 = np.array(dataset1['Date'], dtype=int) # extracts timestamps from each dataset
     timestamps2 = np.array(dataset2['Date'], dtype=int)
 
-    # otherwise perform elementwise comparison of timestamps
+    # perform elementwise comparison of timestamps
     std_diff = np.std(timestamps2[:len(timestamps1)] - timestamps1) # determines if ds1 is earlier/later than ds2 on average
-    diff_tolerance = abs(std_diff)
+    diff_tolerance = 150
     print("Average element-wise difference between points in timestamps1 and timestamps2:", std_diff)
     print("Difference tolerance for calculating outliers (abs of avg difference): ", diff_tolerance)
-    # ^ positive value: timestamps2 is later than timestamps1
-    # print(timestamps1)
-    # print(timestamps2)
+    # a positive value indicates that timestamps2, on average, is later than timestamps1
+    # this should be true because timestamps2 is longer than timestamps1
+    exceptions = 0
 
     for i, elem2 in enumerate(timestamps2): # enumerate returns tuples of (index, value)
         try: 
@@ -367,8 +369,10 @@ def align_timestamps(dataset1, dataset2):
         if elem2 - elem1 > (2 * diff_tolerance): # indicates that there might've been a skip in time
             # first case: elem2 is much later than elem1, indicating a skip in timestamps2
             # realistically, as timestamps2 should be the longer array, the first case should not occur
-            # print(elem1, ":", elem2)
-            # print("ERROR: skip in timestamp detected within the CSV files, cannot perform timestamp alignment between two datasets provided")
+            if not exceptions: 
+                exceptions = 1
+                print(elem1, ":", elem2)
+                print("ERROR: skip in timestamp detected within the CSV files, cannot perform timestamp alignment between two datasets provided")
             pass
         elif elem1 - elem2 > (std_diff + diff_tolerance):
             print(elem1, ":", elem2)
@@ -385,7 +389,7 @@ def align_timestamps(dataset1, dataset2):
                     else:
                         dataset1[key].insert(i, dataset1[key][i - 1] + dataset1[key][i + 1] / 2)
             print("len 1: ", len(timestamps1), "len 2: ", len(timestamps2))
-        else:
+        else: 
             # print("reassigning")
             timestamps1[i] = elem2
     
@@ -400,9 +404,11 @@ def align_timestamps(dataset1, dataset2):
 
 def align():
     if ups_data:
+        print("Aligning UPS and HPC data")
         align_timestamps(hpc_data, ups_data)
 
     if ent_data:
+        print("Aligning ENT and HPC data")
         align_timestamps(hpc_data, ent_data)
 
     if ups_data and hpc_data:
