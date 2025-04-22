@@ -358,7 +358,7 @@ def align_timestamps(dataset1, dataset2):
     print("Difference tolerance for calculating outliers (abs of avg difference): ", diff_tolerance)
     # a positive value indicates that timestamps2, on average, is later than timestamps1
     # this should be true because timestamps2 is longer than timestamps1
-    exceptions = 0
+    exceptions = 0 
 
     for i, elem2 in enumerate(timestamps2): # enumerate returns tuples of (index, value)
         try: 
