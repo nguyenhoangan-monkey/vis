@@ -341,7 +341,7 @@ def align_timestamps(dataset1, dataset2):
     # arguably very bad logic
     if len(dataset2['Date']) == len(dataset1['Date']):
         dataset1['Date'] = dataset2['Date']
-        return
+        return 
 
     if len(dataset2['Date']) < len(dataset1['Date']):
         # switch if dataset1 is longer than dataset2, so that dataset2 is always longer
@@ -358,7 +358,7 @@ def align_timestamps(dataset1, dataset2):
     print("Difference tolerance for calculating outliers (abs of avg difference): ", diff_tolerance)
     # a positive value indicates that timestamps2, on average, is later than timestamps1
     # this should be true because timestamps2 is longer than timestamps1
-    exceptions = 0
+    exceptions = 0 
 
     for i, elem2 in enumerate(timestamps2): # enumerate returns tuples of (index, value)
         try: 
