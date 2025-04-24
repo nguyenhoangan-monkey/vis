@@ -333,82 +333,75 @@ def clean_data(dataset):
     return
 
 def align_timestamps(dataset1, dataset2):
-    """ Given two dictionaries, aligns the timestamps of the shorter dictionary to the longer one
-    Input: two dictionaries dataset1 and dataset2, for the timestamps you want to align
-    Output: modifies in-place the timestamps and corresponding data
     """
-    # if the timestamps are the same length, simply reassign
-    # does NOT account for mismatching timestamps within data, will just reassign them to the same bucket
-    # arguably very bad logic
-    if len(dataset2['Date']) == len(dataset1['Date']):
-        dataset1['Date'] = dataset2['Date']
-        return 
+    Aligns the timestamps of the shorter dataset to match the longer one,
+    using interpolation or nearest values to fill gaps.
+    """
+    if len(dataset1['Date']) > len(dataset2['Date']):
+        dataset1, dataset2 = dataset2, dataset1
 
-    if len(dataset2['Date']) < len(dataset1['Date']):
-        # switch if dataset1 is longer than dataset2, so that dataset2 is always longer
-        temp = dataset1
-        dataset1 = dataset2
-        dataset2 = temp
-    timestamps1 = np.array(dataset1['Date'], dtype=int) # extracts timestamps from each dataset
+    timestamps1 = np.array(dataset1['Date'], dtype=int)
     timestamps2 = np.array(dataset2['Date'], dtype=int)
 
-    # perform elementwise comparison of timestamps
-    std_diff = np.std(timestamps2[:len(timestamps1)] - timestamps1) # determines if ds1 is earlier/later than ds2 on average
-    diff_tolerance = 150
-    print("Average element-wise difference between points in timestamps1 and timestamps2:", std_diff)
-    print("Difference tolerance for calculating outliers (abs of avg difference): ", diff_tolerance)
-    # a positive value indicates that timestamps2, on average, is later than timestamps1
-    # this should be true because timestamps2 is longer than timestamps1
-    exceptions = 0 
+    aligned_timestamps = []
+    aligned_data = {key: [] for key in dataset1 if key != 'Date'}
 
-    for i, elem2 in enumerate(timestamps2): # enumerate returns tuples of (index, value)
-        try: 
-            elem1 = timestamps1[i]
-        except:
-            timestamps1.append(elem2)
-            elem1 = timestamps1[i]
-        if elem2 - elem1 > (2 * diff_tolerance): # indicates that there might've been a skip in time
-            # first case: elem2 is much later than elem1, indicating a skip in timestamps2
-            # realistically, as timestamps2 should be the longer array, the first case should not occur
-            if not exceptions: 
-                exceptions = 1
-                print(elem1, ":", elem2)
-                print("ERROR: skip in timestamp detected within the CSV files, cannot perform timestamp alignment between two datasets provided")
-            pass
-        elif elem1 - elem2 > (std_diff + diff_tolerance):
-            print(elem1, ":", elem2)
-            # second case: elem1 is much later than elem2, indicating a skip in timestamps1
-            # append to shorter array, timestamps1 
-            timestamps1 = list(np.insert(timestamps1, i, elem2))
-            # update data for values
-            for key in dataset1:
-                if key != 'Date':
-                    if i == 0:
-                        dataset1[key].insert(i, dataset1[key][i + 1])
-                    elif i == len(timestamps1) - 1:
-                        dataset1[key].insert(i, dataset1[key][i - 1])
+    idx1 = 0
+    diff_tolerance = 5
+
+    for i, ts2 in enumerate(timestamps2):
+        if idx1 < len(timestamps1):
+            ts1 = timestamps1[idx1]
+            if abs(ts2 - ts1) < diff_tolerance:
+                # timestamps are aligned enough
+                aligned_timestamps.append(ts2)
+                for key in aligned_data:
+                    aligned_data[key].append(dataset1[key][idx1])
+                idx1 += 1
+            elif ts2 < ts1:
+                # fill in a missing earlier point by repeating the first value
+                aligned_timestamps.append(ts2)
+                for key in aligned_data:
+                    aligned_data[key].append(dataset1[key][0])
+            else:
+                # interpolation required
+                aligned_timestamps.append(ts2)
+                for key in aligned_data:
+                    if idx1 == 0:
+                        # no earlier point, repeat next
+                        interpolated = dataset1[key][idx1]
+                    elif idx1 >= len(dataset1[key]) - 1:
+                        # no later point, repeat previous
+                        interpolated = dataset1[key][idx1 - 1]
                     else:
-                        dataset1[key].insert(i, dataset1[key][i - 1] + dataset1[key][i + 1] / 2)
-            print("len 1: ", len(timestamps1), "len 2: ", len(timestamps2))
-        else: 
-            # print("reassigning")
-            timestamps1[i] = elem2
-    
-    # print([timestamps1 for timestamps1, timestamps2 in zip(timestamps1, dataset2['Date']) if timestamps1 != timestamps2][::50])
-    # print(timestamps2 == dataset2['Date'])
-    dataset1['Date'] = timestamps1
-    # print([timestamps1 for timestamps1, timestamps2 in zip(dataset1['Date'], dataset2['Date']) if timestamps1 != timestamps2][::50])
-    assert(len(timestamps1) == len(timestamps2)) # length check
-    assert(timestamps1[int(len(timestamps1) / 2)] == timestamps2[int(len(timestamps2) / 2)]) # midpoint check
-    # assert() # checking for deviation
+                        # linear interpolation between previous and next
+                        prev_val = dataset1[key][idx1 - 1]
+                        next_val = dataset1[key][idx1]
+                        interpolated = (prev_val + next_val) / 2
+                    aligned_data[key].append(interpolated)
+        else:
+            # ran out of values in dataset1, pad with last value
+            aligned_timestamps.append(ts2)
+            for key in aligned_data:
+                aligned_data[key].append(dataset1[key][-1])
+
+    dataset1['Date'] = aligned_timestamps
+    for key in aligned_data:
+        dataset1[key] = aligned_data[key]
+
+    assert len(dataset1['Date']) == len(dataset2['Date'])
     return
 
 def align():
     if ups_data:
+        print(ups_data.keys())
+        if upsOnly: print("UPS only requested")
         print("Aligning UPS and HPC data")
         align_timestamps(hpc_data, ups_data)
 
     if ent_data:
+        print(ent_data.keys())
+        if entOnly: print("ENT only requested")
         print("Aligning ENT and HPC data")
         align_timestamps(hpc_data, ent_data)
 
@@ -623,7 +616,7 @@ def calculate(interval):
 
     plt.legend()
     # plt.show()
-    plt.savefig('out.png')
+    plt.savefig('out.jpg')
 
 def main():
     locale.setlocale(locale.LC_ALL, 'en_US')
@@ -639,13 +632,13 @@ def main():
     if args.group == 'Com Center Main Room' and not hpcOnly and not upsOnly: # INCLUDE ENTERPRISE EQUIPMENT DATA
         parse_ENT()
         for key in ent_data:
-            print(key, ent_data[key][:1])
+            print(key, ent_data[key][:10])
         print("ENT LENGTH:", len(ent_data[args.group]))
 
     if args.group == 'Com Center Main Room' and not hpcOnly and not entOnly: 
         parse_UPS()
         for key in ups_data:
-            print(key, ups_data[key][:1])
+            print(key, ups_data[key][:10])
         print("UPS LENGTH:", len(ups_data['UPS_AVG']))
 
     clean_data(hpc_data)
