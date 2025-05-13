@@ -1,5 +1,6 @@
 import argparse
 import datetime as dt
+import locale
 import pandas
 import sys
 
@@ -118,12 +119,28 @@ def get_headers(*args):
     else:
         raise TypeError("get_headers() only takes zero or one argument")
 
+
 # USAGE: -g GROUP -d DAYS -p POINTS [-s START] [-e END] [-a] [-m]
 def parse_cli_args(csv_headers):
     parser = argparse.ArgumentParser(
         description="Parses and visualizes SNMP power data.",
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
+    def valid_date(str):
+        try:
+            timestamp = dt.datetime.strptime(str, "%m/%d/%Y")
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"not a valid date: {str!r}")
+        return timestamp
+
+    def greater_than_2_hours_float(number):
+        try:
+            float_number = float(number)
+        except ValueError:
+            raise argparse.ArgumentTypeError(f"Invalid numeric value: {number!r}")
+        if float_number < 0.08:
+            raise argparse.ArgumentTypeError(f"numDays must be >= 0.08; got {number}")
+        return float_number
 
     parser.add_argument(
         "-g",
@@ -140,9 +157,7 @@ def parse_cli_args(csv_headers):
         metavar="MM/DD/YYYY",
         help="start date (inclusive)",
     )
-
-    group_date = parser.add_mutually_exclusive_group(required=True)
-    group_date.add_argument(
+    parser.add_argument(
         "-d",
         "--days",
         dest="num_days",
@@ -150,7 +165,7 @@ def parse_cli_args(csv_headers):
         default=7.0,
         help="number of days of data to include",
     )
-    group_date.add_argument(
+    parser.add_argument(
         "-e",
         "--end",
         dest="end_date",
@@ -159,7 +174,6 @@ def parse_cli_args(csv_headers):
         metavar="MM/DD/YYYY",
         help="end date (inclusive)",
     )
-
     parser.add_argument(
         "-p",
         "--points",
@@ -181,33 +195,19 @@ def parse_cli_args(csv_headers):
         "--average",
         dest="avg",
         action="store_true",
+        default=False,
         help="chart average load only",
     )
     group_graphing.add_argument(
         "-m",
         "--max",
-        dest="max_load",
+        dest="max",
         action="store_true",
+        default=False,
         help="chart maximum load only",
     )
 
-    def valid_date(str):
-        try:
-            timestamp = dt.datetime.strptime(str, "%m/%d/%Y")
-        except ValueError:
-            raise argparse.ArgumentTypeError(f"not a valid date: {str!r}")
-        return timestamp
-
-    def greater_than_2_hours_float(number):
-        try:
-            float_number = float(number)
-        except ValueError:
-            raise argparse.ArgumentTypeError(f"Invalid numeric value: {number!r}")
-        if float_number < 0.08:
-            raise argparse.ArgumentTypeError(f"numDays must be >= 0.08; got {number}")
-        return float_number
-
-    return parser.parse_args(sys.argv[1:] or ["-h"])
+    return parser.parse_args()
 
 
 def prompt_missing_group_category():
@@ -313,19 +313,20 @@ def prompt_com_center_main_room():
 
 
 def get_date_bounds(args):
-    delta = dt.timedelta(days=float(args.numDays))
+    delta = dt.timedelta(days=float(args.num_days))
     time_now = dt.datetime.now()
-    startDate = args.startDate or (time_now - delta)
-    endDate = (startDate + delta) or args.endDate
-    numDays = (endDate.date() - startDate.date()).days
+    start_date = args.start_date or (time_now - delta)
+    end_date = (start_date + delta) or args.end_date
+    num_days = (end_date - start_date).days
     return {
-        "startDate": startDate,
-        "endDate": endDate,
-        "numDays": numDays,
+        "startDate": start_date,
+        "endDate": end_date,
+        "numDays": num_days,
     }
 
 
 def main():
+    locale.setlocale(locale.LC_ALL, "en_US")
     csv_headers = get_headers()
     args = parse_cli_args(csv_headers)
 
@@ -346,19 +347,19 @@ def main():
         }
     search_config.update(get_date_bounds(args))
 
-    print(f"""
+    print(
+        f"""
     Group:            {args.group}
-    Start Date:       {args.startDate}
-    Days:             {args.numDays}
+    Start Date:       {args.start_date}
+    Days:             {args.num_days}
     Average?          {args.avg}
     Max?              {args.max}
-    Number of Points? {args.numPoints}
+    Number of Points? {args.num_points}
     ---
     Start time:       {search_config['startDate']}
     End time:         {search_config['endDate']}
-    """.strip())
-
-    
+    """
+    )
 
 
 if __name__ == "__main__":
