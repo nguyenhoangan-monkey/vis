@@ -1,12 +1,13 @@
 import argparse
-import pandas
 import datetime as dt
+import pandas
+import sys
 
 
-def get_headers():
+def get_headers(*args):
     # eventually do away with the constant and
     # fetch the headers directly in csv
-    return [
+    A_SERIES_PDUS = [
         "PDU-A10-1",
         "PDU-A10-2",
         "PDU-A10-3",
@@ -27,6 +28,9 @@ def get_headers():
         "PDU-A8-2",
         "PDU-A8-3",
         "PDU-A8-4",
+    ]
+
+    B_SERIES_PDUS = [
         "PDU-B1-1",
         "PDU-B1-2",
         "PDU-B1-3",
@@ -38,6 +42,9 @@ def get_headers():
         "PDU-B3-4",
         "PDU-B4-1",
         "PDU-B4-2",
+    ]
+
+    D_SERIES_PDUS = [
         "PDU-D1-1",
         "PDU-D1-2",
         "PDU-D1-3",
@@ -57,6 +64,9 @@ def get_headers():
         "PDU-D5-1",
         "PDU-D5-2",
         "PDU-D5-3",
+    ]
+
+    OTHER_RACK_POWER_UNITS = [
         "UPS-PDU1",
         "UPS-PDU2",
         "SW-EPS1",
@@ -67,6 +77,9 @@ def get_headers():
         "PDU-A0-3",
         "PDU-C4-1",
         "PDU-C4-2",
+    ]
+
+    FACILITY_LEVEL_AGGREGATES = [
         "Com Center Main Room",
         "Com Center A-Aisle",
         "Com Center B-Aisle",
@@ -80,6 +93,31 @@ def get_headers():
         "IACS RP2 Panel",
     ]
 
+    if len(args) == 0:
+        return (
+            A_SERIES_PDUS
+            + B_SERIES_PDUS
+            + D_SERIES_PDUS
+            + OTHER_RACK_POWER_UNITS
+            + FACILITY_LEVEL_AGGREGATES
+        )
+    elif len(args) == 1:
+        # logic is in prompt_missing_group_category()
+        if args[0] == 0:
+            return A_SERIES_PDUS
+        elif args[0] == 1:
+            return B_SERIES_PDUS
+        elif args[0] == 2:
+            return D_SERIES_PDUS
+        elif args[0] == 3:
+            return OTHER_RACK_POWER_UNITS
+        elif args[0] == 4:
+            return FACILITY_LEVEL_AGGREGATES
+        else:
+            raise TypeError("get_headers() argument in /{0, 1, 2, 3, 4/}")
+    else:
+        raise TypeError("get_headers() only takes zero or one argument")
+
 
 def parse_cli_args(csv_headers):
     parser = argparse.ArgumentParser(
@@ -91,7 +129,6 @@ def parse_cli_args(csv_headers):
         "-g",
         "--group",
         choices=csv_headers,
-        default="Com Center Main Room",
         help="PDU group (e.g. ARACK, MAINROOM, IACS)",
     )
     parser.add_argument(
@@ -169,14 +206,55 @@ def parse_cli_args(csv_headers):
         if float_number <= 0:
             raise argparse.ArgumentTypeError(f"Value must be > 0; got {number}")
         return float_number
-    
-    return parser.parse_args()
 
+    return parser.parse_args(sys.argv[1:] or ["-h"])
+
+
+def prompt_missing_group_category():
+    while True:
+        prompt_input = input(
+            """Group name is not specified in the command line.
+        Please enter a value:
+        0) A-series PDUs
+        1) B-series PDUs
+        2) D-series PDUs
+        3) Other rack power units
+        4) Facility level aggregates
+        > """
+        ).strip()
+
+        if prompt_input.isdigit():
+            option = int(prompt_input)
+            if 0 <= option <= 4:
+                return option
+
+        print(f"Invalid input: {prompt_input!r}")
+        print("Please enter a number between 0 and 4.")
+
+
+def prompt_missing_group(power_unit_list):
+    while True:
+        prompt_input = input(
+            f"""Please type in one of the following options:\n{power_unit_list}
+        > """
+        ).strip()
+
+        if prompt_input in power_unit_list:
+            return prompt_input
+
+        print(f"Invalid name: {prompt_input!r}")
 
 
 def main():
     csv_headers = get_headers()
     args = parse_cli_args(csv_headers)
+
+    if args.group == None:
+        option = prompt_missing_group_category()
+        power_unit_list = get_headers(option)
+        args.group = prompt_missing_group(power_unit_list)
+
+
 
 
 if __name__ == "__main__":
