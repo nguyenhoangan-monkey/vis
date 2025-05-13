@@ -118,7 +118,7 @@ def get_headers(*args):
     else:
         raise TypeError("get_headers() only takes zero or one argument")
 
-
+# USAGE: -g GROUP -d DAYS -p POINTS [-s START] [-e END] [-a] [-m]
 def parse_cli_args(csv_headers):
     parser = argparse.ArgumentParser(
         description="Parses and visualizes SNMP power data.",
@@ -146,7 +146,7 @@ def parse_cli_args(csv_headers):
         "-d",
         "--days",
         dest="num_days",
-        type=positive_float,
+        type=greater_than_2_hours_float,
         default=7.0,
         help="number of days of data to include",
     )
@@ -198,13 +198,13 @@ def parse_cli_args(csv_headers):
             raise argparse.ArgumentTypeError(f"not a valid date: {str!r}")
         return timestamp
 
-    def positive_float(number):
+    def greater_than_2_hours_float(number):
         try:
             float_number = float(number)
         except ValueError:
             raise argparse.ArgumentTypeError(f"Invalid numeric value: {number!r}")
-        if float_number <= 0:
-            raise argparse.ArgumentTypeError(f"Value must be > 0; got {number}")
+        if float_number < 0.08:
+            raise argparse.ArgumentTypeError(f"numDays must be >= 0.08; got {number}")
         return float_number
 
     return parser.parse_args(sys.argv[1:] or ["-h"])
@@ -312,6 +312,19 @@ def prompt_com_center_main_room():
         raise ValueError("Input is not santized in prompt_com_center_main_room()")
 
 
+def get_date_bounds(args):
+    delta = dt.timedelta(days=float(args.numDays))
+    time_now = dt.datetime.now()
+    startDate = args.startDate or (time_now - delta)
+    endDate = (startDate + delta) or args.endDate
+    numDays = (endDate.date() - startDate.date()).days
+    return {
+        "startDate": startDate,
+        "endDate": endDate,
+        "numDays": numDays,
+    }
+
+
 def main():
     csv_headers = get_headers()
     args = parse_cli_args(csv_headers)
@@ -321,15 +334,31 @@ def main():
         power_unit_list = get_headers(option)
         args.group = prompt_missing_group(power_unit_list)
 
-    search_config = {
-        "upsOnly": False,
-        "entOnly": False,
-        "hpcOnly": False,
-        "nonmetered": False,
-        "headerData": "",
-    }
     if args.group == "Com Center Main Room":
         search_config = prompt_com_center_main_room()
+    else:
+        search_config = {
+            "upsOnly": False,
+            "entOnly": False,
+            "hpcOnly": False,
+            "nonmetered": False,
+            "headerData": "",
+        }
+    search_config.update(get_date_bounds(args))
+
+    print(f"""
+    Group:            {args.group}
+    Start Date:       {args.startDate}
+    Days:             {args.numDays}
+    Average?          {args.avg}
+    Max?              {args.max}
+    Number of Points? {args.numPoints}
+    ---
+    Start time:       {search_config['startDate']}
+    End time:         {search_config['endDate']}
+    """.strip())
+
+    
 
 
 if __name__ == "__main__":
