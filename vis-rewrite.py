@@ -245,6 +245,73 @@ def prompt_missing_group(power_unit_list):
         print(f"Invalid name: {prompt_input!r}")
 
 
+def prompt_com_center_main_room():
+    # feeling that the upsOnly, entOnly, hpcOnly variables are redundant
+    option = 0
+    while True:
+        prompt_input = input(
+            """There are many sections within the Com Center Main Room.
+        Please enter which sections you want its power data to be graphed:
+        1) Whole room, total
+        2) UPS data-only
+        3) Enterprise aisle-only
+        4) HPC data-only
+        5) nonmetered equipment
+        > """
+        ).strip()
+
+        if prompt_input.isdigit():
+            option = int(prompt_input)
+            if 1 <= option <= 5:
+                break
+
+        print(f"Invalid input: {prompt_input!r}")
+        print("Please enter a number between 1 and 5.")
+
+    if option == 1:
+        return {
+            "upsOnly": False,
+            "entOnly": False,
+            "hpcOnly": False,
+            "nonmetered": False,
+            "headerData": "",
+        }
+    elif option == 2:
+        return {
+            "upsOnly": True,
+            "entOnly": False,
+            "hpcOnly": False,
+            "nonmetered": False,
+            "headerData": "UPS",
+        }
+    elif option == 3:
+        return {
+            "upsOnly": False,
+            "entOnly": True,
+            "hpcOnly": False,
+            "nonmetered": False,
+            "headerData": "ENT",
+        }
+    elif option == 4:
+        return {
+            "upsOnly": False,
+            "entOnly": False,
+            "hpcOnly": True,
+            "nonmetered": False,
+            "headerData": "HPC",
+        }
+    elif option == 5:
+        return {
+            "upsOnly": False,
+            "entOnly": False,
+            "hpcOnly": False,
+            "nonmetered": True,
+            "headerData": "Nonmetered",
+        }
+    else:
+        raise ValueError("Input is not santized in prompt_com_center_main_room()")
+
+
 def main():
     csv_headers = get_headers()
     args = parse_cli_args(csv_headers)
@@ -254,7 +321,15 @@ def main():
         power_unit_list = get_headers(option)
         args.group = prompt_missing_group(power_unit_list)
 
-
+    search_config = {
+        "upsOnly": False,
+        "entOnly": False,
+        "hpcOnly": False,
+        "nonmetered": False,
+        "headerData": "",
+    }
+    if args.group == "Com Center Main Room":
+        search_config = prompt_com_center_main_room()
 
 
 if __name__ == "__main__":
