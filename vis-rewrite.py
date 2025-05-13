@@ -325,6 +325,11 @@ def get_date_bounds(args):
     }
 
 
+def parse_HPC(args, search_config):
+    pass
+
+
+
 def main():
     locale.setlocale(locale.LC_ALL, "en_US")
     csv_headers = get_headers()
@@ -360,6 +365,8 @@ def main():
     End time:         {search_config['endDate']}
     """
     )
+
+    parse_HPC(args, search_config)
 
 
 if __name__ == "__main__":
