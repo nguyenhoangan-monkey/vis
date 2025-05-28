@@ -358,7 +358,6 @@ def get_file_names_pandas():
 # heavily "borrowed" from https://stackoverflow.com/questions/20906474/import-multiple-csv-files-into-pandas-and-concatenate-into-one-dataframe
 def combine_csv_to_dataframe(path):
     all_files = glob.glob(os.path.join(path,"/*.csv"))
-
     li = []
 
     for filename in all_files:
@@ -472,3 +471,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+    combine_csv_to_dataframe("/gpfs/projects/hpc_support/snmp")
