@@ -332,7 +332,7 @@ def get_date_bounds(args):
     }
 
 
-def files_name_in_range(start: str, end: str):
+def file_names_in_range(start: str, end: str):
     start_date = dt.datetime.strptime(start, "%Y-%m-%d").date()
     end_date = dt.datetime.strptime(end, "%Y-%m-%d").date()
 
@@ -393,7 +393,7 @@ def parse_HPC(group_name: str, search_config: dict[str, Any]):
         "SeaWulf Annex on UPS": [],
     }
 
-    files = files_name_in_range(search_config['startDate'].date(), search_config['endDate'].date())
+    files = file_names_in_range(search_config['startDate'].date(), search_config['endDate'].date())
     print(files)
 
     for file in files:
