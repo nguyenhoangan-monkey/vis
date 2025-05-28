@@ -2,3 +2,7 @@ Timeline of Changes for the Visualization Script
 - Implement version control (set up Git)
 - Move all predefined magic constants to the beginning of the file (in final variables)
 - Move all function calls into main function
+
+
+
+rsync -avz <insert path to file> <netid>@login.seawulf.stonybrook.edu:/gpfs/projects/hpc_support/snmp/
