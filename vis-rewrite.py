@@ -347,6 +347,9 @@ def file_names_in_range(start: str, end: str):
 
     return [f for _, f in sorted(files)]
 
+def get_file_names_pandas():
+    pass #TODO use pandas
+
 def timestamp_in_range(row, search_config):
     after_start_date = int(row['Date']) >= dt.datetime.timestamp(search_config["startDate"])
     before_end_date = int(row['Date']) <= dt.datetime.timestamp(search_config["endDate"])
