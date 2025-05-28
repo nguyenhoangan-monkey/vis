@@ -2,10 +2,13 @@ import argparse
 import csv
 import datetime as dt
 import locale
-import pandas
+import pandas as pd
 import pathlib
 import re
 import subprocess
+# "glob" and "os" are for combining the csvs into one dataframe - Ben 5/28/25
+import glob
+import os
 
 from typing import Any
 
@@ -349,6 +352,22 @@ def file_names_in_range(start: str, end: str):
 
 def get_file_names_pandas():
     pass #TODO use pandas
+
+# below is a function that does what it says for all csvs in a path.
+# The goal is to get one big dataframe, then use pandas functions to fix any other problems - Ben 5-28-25
+# heavily "borrowed" from https://stackoverflow.com/questions/20906474/import-multiple-csv-files-into-pandas-and-concatenate-into-one-dataframe
+def combine_csv_to_dataframe(path):
+    all_files = glob.glob(os.path.join(path,"/*.csv"))
+
+    li = []
+
+    for filename in all_files:
+        df = pd.read_csv(filename, index_col = None, header=0) #ToDo: learn what this does
+        li.append(df)
+    
+    frame = pd.concat(li, axis=0, ignore_index=True)
+    return(frame)
+    #note that they go on to explain how to add a new column identifying each sample
 
 # def timestamp_in_range(row, search_config):
 #     after_start_date = int(row['Date']) >= dt.datetime.timestamp(search_config["startDate"])
