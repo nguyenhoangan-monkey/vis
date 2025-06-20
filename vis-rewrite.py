@@ -444,4 +444,5 @@ def main():
 
 if __name__ == "__main__":
     main()
-    combine_csv_to_dataframe("/gpfs/projects/hpc_support/snmp")
+    # TODO: the path shouldn't be hard coded
+    # combine_csv_to_dataframe("/gpfs/projects/hpc_support/snmp")
