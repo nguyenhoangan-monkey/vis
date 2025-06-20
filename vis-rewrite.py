@@ -368,34 +368,6 @@ def combine_csv_to_dataframe(path):
     return(frame)
     #note that they go on to explain how to add a new column identifying each sample
 
-# def timestamp_in_range(row, search_config):
-#     after_start_date = int(row['Date']) >= dt.datetime.timestamp(search_config["startDate"])
-#     before_end_date = int(row['Date']) <= dt.datetime.timestamp(search_config["endDate"])
-#     return after_start_date and before_end_date
-
-# def write_to_hpc_data(row, file, search_config, group_name, hpc_data):
-#     hpc_data['Date'].append(int(row['Date']))
-#     if group_name not in row: # data does not exists, use 0 as a placeholder
-#         hpc_data[group_name].append(float(0))
-
-#     if (group_name == 'Com Center Main Room'):
-#         ups_watts = float(row['SeaWulf Main Room on UPS'])
-#         non_ups_watts = float(row['SeaWulf Main Room on Non-UPS'])
-
-#         hpc_data['SeaWulf Main Room on UPS'].append(ups_watts)
-#         hpc_data['SeaWulf Main Room on Non-UPS'].append(non_ups_watts)
-#         hpc_data[group_name].append(ups_watts + non_ups_watts)
-
-#         annex_data_needed = not (search_config["hpcOnly"]
-#                                     or search_config["upsOnly"]
-#                                     or search_config["entOnly"])
-#         if (annex_data_needed):
-#             if (file >= '2024-02-16.csv'):
-#                 hpc_data['SeaWulf Annex on UPS'].append(float(row['SeaWulf Annex on UPS']))
-#             else: # annex data does not exists, use 0 as a placeholder
-#                 hpc_data['SeaWulf Annex on UPS'].append(float(0))
-#     else: 
-#         hpc_data[group_name].append(float(row[group_name]))
 
 def parse_HPC(group_name: str, search_config: dict[str, Any]):
     # TODO: check logic and make the function more resilient
